@@ -1,10 +1,11 @@
 name: Deploy
+
 on:
   push:
     branches: master
   pull_request:
     branches: master
-  workflow_dispatch:  # This enables manual triggering
+  workflow_dispatch:  # Manual trigger support
 
 jobs:
   deploy:
@@ -12,12 +13,17 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      id-token: write # Needed for auth with Deno Deploy
-      contents: read # Needed to clone the repository
+      id-token: write
+      contents: write  # Needed to commit changes
 
     steps:
       - name: Clone repository
         uses: actions/checkout@v4
+
+      - name: Set up Git
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
 
       - name: Install Deno
         uses: denoland/setup-deno@v2
@@ -29,19 +35,26 @@ jobs:
         with:
           node-version: lts/*
 
-      - name: Update package.json dependencies
+      - name: Downgrade next-auth to v4
         run: |
-          # Check for dependency conflicts and fix them
-          npm install --legacy-peer-deps || true
-          # If the install fixes the dependencies, commit the changes
-          git add package.json package-lock.json
-          git diff --exit-code || git commit -m "Fix dependency conflicts"
+          jq '.dependencies["next-auth"] = "^4.24.11"' package.json > package.tmp.json && mv package.tmp.json package.json
+          rm -f package-lock.json
 
-      - name: Install step
-        run: "npm install"
+      - name: Install dependencies
+        run: npm install
+
+      - name: Commit changes (if any)
+        run: |
+          git add package.json package-lock.json
+          git diff --cached --quiet || git commit -m "Downgrade next-auth to v4 for compatibility with prisma-adapter"
+          git push || echo "No changes to push"
 
       - name: Build step
-        run: "npm run build && (cp -r public .next/standalone/public; cp -r .next/static .next/standalone/.next/static; mv .next/standalone/server.js .next/standalone/server.cjs)"
+        run: |
+          npm run build
+          cp -r public .next/standalone/public
+          cp -r .next/static .next/standalone/.next/static
+          mv .next/standalone/server.js .next/standalone/server.cjs
 
       - name: Upload to Deno Deploy
         uses: denoland/deployctl@v1
