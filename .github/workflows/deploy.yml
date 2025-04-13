@@ -5,7 +5,7 @@ on:
     branches: master
   pull_request:
     branches: master
-  workflow_dispatch:  # Manual trigger support
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -14,7 +14,7 @@ jobs:
 
     permissions:
       id-token: write
-      contents: write  # Needed to commit changes
+      contents: write
 
     steps:
       - name: Clone repository
@@ -35,18 +35,18 @@ jobs:
         with:
           node-version: lts/*
 
-      - name: Downgrade next-auth to v4
+      - name: Patch package.json for compatibility
         run: |
-          jq '.dependencies["next-auth"] = "^4.24.11"' package.json > package.tmp.json && mv package.tmp.json package.json
+          jq '.dependencies["next-auth"] = "^4.24.11" | .devDependencies["eslint"] = "^8.57.0"' package.json > package.tmp.json && mv package.tmp.json package.json
           rm -f package-lock.json
 
       - name: Install dependencies
         run: npm install
 
-      - name: Commit changes (if any)
+      - name: Commit fixed dependencies
         run: |
           git add package.json package-lock.json
-          git diff --cached --quiet || git commit -m "Downgrade next-auth to v4 for compatibility with prisma-adapter"
+          git diff --cached --quiet || git commit -m "Fix peer dependency conflicts for deploy"
           git push || echo "No changes to push"
 
       - name: Build step
