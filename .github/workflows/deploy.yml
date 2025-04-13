@@ -37,7 +37,7 @@ jobs:
       - name: Upload to Deno Deploy
         uses: denoland/deployctl@v1
         with:
-          project: "iambenjo-animehi-str-55"
+          project: "animehi-str-18"
           entrypoint: "./server.cjs"
           root: ".next/standalone"
           
