@@ -4,6 +4,7 @@ on:
     branches: master
   pull_request:
     branches: master
+  workflow_dispatch:  # This enables manual triggering
 
 jobs:
   deploy:
@@ -28,6 +29,14 @@ jobs:
         with:
           node-version: lts/*
 
+      - name: Update package.json dependencies
+        run: |
+          # Check for dependency conflicts and fix them
+          npm install --legacy-peer-deps || true
+          # If the install fixes the dependencies, commit the changes
+          git add package.json package-lock.json
+          git diff --exit-code || git commit -m "Fix dependency conflicts"
+
       - name: Install step
         run: "npm install"
 
@@ -40,5 +49,3 @@ jobs:
           project: "animehi-str-18"
           entrypoint: "./server.cjs"
           root: ".next/standalone"
-          
-          
